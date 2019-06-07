@@ -28,6 +28,33 @@
 #define IP6_HDRLEN 40		// IPv6 header length
 #define TCP_HDRLEN 20		// TCP header length, excludes options data
 
+
+unsigned short checksum1(const char *buf, unsigned size)
+{
+	unsigned sum = 0;
+	int i;
+
+	/* Accumulate checksum */
+	for (i = 0; i < size - 1; i += 2)
+	{
+		unsigned short word16 = *(unsigned short *) &buf[i];
+		sum += word16;
+	}
+
+	/* Handle odd-sized case */
+	if (size & 1)
+	{
+		unsigned short word16 = (unsigned char) buf[i];
+		sum += word16;
+	}
+
+	/* Fold to get the ones-complement result */
+	while (sum >> 16) sum = (sum & 0xFFFF)+(sum >> 16);
+
+	/* Invert to get the negative in ones-complement arithmetic */
+	return ~sum;
+}
+
 int main(int argc, char **argv)
 {
 	int i, status, frame_length, sd, bytes, tcp_flags[8];
@@ -40,12 +67,12 @@ int main(int argc, char **argv)
 	struct sockaddr_ll device;
 	struct ifreq ifr;
 	void *tmp;
-	
+
 	// Interface to send packet through.
 	if (argc > 1)
 		strcpy(interface, argv[1]);
 	else
-		strcpy(interface, "eth0");
+		strcpy(interface, "enp4s0");
 
 	// Submit request for a socket descriptor to look up interface.
 	if ((sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0) {
@@ -81,10 +108,10 @@ int main(int argc, char **argv)
 	dst_mac[5] = 0xff;
 
 	// Source IPv6 address: you need to fill this out
-	strcpy(src_ip, "2001:1bcd:123:1:20a:f7ff:fe2b:6942");
+	strcpy(src_ip, "2001:1bcd:123:1:a61f:72ff:fef5:9058");
 
 	// Destination URL or IPv6 address: you need to fill this out
-	strcpy(target, "2001:1bcd:123:1:a61f:72ff:fef5:904a");
+	strcpy(target, "2001:1bcd:123:1:647e:2101:b3af:8e61");
 
 	// Fill out hints for getaddrinfo().
 	memset(&hints, 0, sizeof(struct addrinfo));
@@ -117,13 +144,14 @@ int main(int argc, char **argv)
 	iphdr.ip6_flow = htonl((6 << 28) |(0 << 20) | 0);
 
 	// Payload length (16 bits)
-	iphdr.ip6_plen = 0;	// htons(TCP_HDRLEN);
+	iphdr.ip6_plen = htons(20);
 
 	// Next header (8 bits): 6 for TCP****
 	iphdr.ip6_nxt = 6;	//IPPROTO_TCP;
 
 	// Hop limit (8 bits): default to maximum value
 	iphdr.ip6_hops = 255;
+
 
 	// Source IPv6 address (128 bits)
 	if ((status = inet_pton(AF_INET6, src_ip, &(iphdr.ip6_src))) != 1) {
@@ -138,17 +166,44 @@ int main(int argc, char **argv)
 	}
 
 	// TCP header
-	tcphdr.th_sport = 6666;
-	tcphdr.th_dport = 9999;
+	/**
+	 ** comecando trabajo AQUI!!!!
+	**/
+	tcphdr.th_sport = htons(1233);
+	tcphdr.th_dport = htons(1234);
+	tcphdr.th_seq = 0;
+	tcphdr.th_ack = 0;
+	tcphdr.th_flags = TH_SYN;
+	tcphdr.th_win = htons(5840);
+	tcphdr.th_sum = 0;
+	tcphdr.th_off = 5;
 
+	/*
+	//TCP Header
+	tcph-&gt;source = htons (1234);
+	tcph-&gt;dest = htons (80);
+	tcph-&gt;seq = 0;
+	tcph-&gt;ack_seq = 0;
+	tcph-&gt;doff = 5;
+	tcph-&gt;fin=0;
+	tcph-&gt;syn=1;
+	tcph-&gt;rst=0;
+	tcph-&gt;psh=0;
+	tcph-&gt;ack=0;
+	tcph-&gt;urg=0;
+	tcph-&gt;window = htons (5840);
+	tcph-&gt;check = 0;
+	should fill in the correct checksum during transmission
+	tcph-&gt;urg_ptr = 0;
+	*/
 	// Fill out ethernet frame header.
 
 	// Ethernet frame length = ethernet header (MAC + MAC + ethernet type) + ethernet data (IP header + TCP header)
-	frame_length = 6 + 6 + 2 + IP6_HDRLEN;// + TCP_HDRLEN;
+	frame_length = ETH_HDRLEN + IP6_HDRLEN;// + TCP_HDRLEN;
 
 	// Destination and Source MAC addresses
 	memcpy(ether_frame, dst_mac, 6 * sizeof(uint8_t));
-	memcpy(ether_frame + 6, src_mac, 6 * sizeof(uint8_t));
+	memcpy(ether_frame + 6, src_mac, 6 * sizeof(uint8_t)); //12 + 14
 
 	// Next is ethernet type code (ETH_P_IPV6 for IPv6).
 	// http://www.iana.org/assignments/ethernet-numbers
@@ -158,9 +213,11 @@ int main(int argc, char **argv)
 	// Next is ethernet frame data (IPv6 header + TCP header).
 
 	// IPv6 header
-	memcpy(ether_frame + ETH_HDRLEN, &iphdr, IP6_HDRLEN * sizeof(uint8_t));
+	memcpy(ether_frame + ETH_HDRLEN, &iphdr, IP6_HDRLEN * sizeof(uint8_t)); //12+
 
 	// TCP header
+	memcpy(ether_frame + frame_length , &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
+	frame_length += TCP_HDRLEN;
 
 	// Send ethernet frame to socket.
 	if ((bytes = sendto(sd, ether_frame, frame_length, 0,(struct sockaddr *) &device, sizeof(device))) <= 0) {
