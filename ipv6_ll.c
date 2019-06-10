@@ -162,35 +162,9 @@ tcp6_checksum (struct ip6_hdr iphdr, struct tcphdr tcphdr, uint8_t *payload, int
   return checksum ((uint16_t *) buf, chksumlen);
 }
 
-unsigned short checksum1(const char *buf, unsigned size)
-{
-	unsigned sum = 0;
-	int i;
-
-	/* Accumulate checksum */
-	for (i = 0; i < size - 1; i += 2)
-	{
-		unsigned short word16 = *(unsigned short *) &buf[i];
-		sum += word16;
-	}
-
-	/* Handle odd-sized case */
-	if (size & 1)
-	{
-		unsigned short word16 = (unsigned char) buf[i];
-		sum += word16;
-	}
-
-	/* Fold to get the ones-complement result */
-	while (sum >> 16) sum = (sum & 0xFFFF)+(sum >> 16);
-
-	/* Invert to get the negative in ones-complement arithmetic */
-	return ~sum;
-}
-
 int main(int argc, char **argv)
 {
-	int i, status, frame_length, sd, bytes, tcp_flags[8];
+	int i, status, frame_length, sd, bytes, tcp_flags[8], portaIni, portaFim, op;
 	uint8_t src_mac[6], dst_mac[6], ether_frame[1518];
 	char interface[40], target[INET6_ADDRSTRLEN], src_ip[INET6_ADDRSTRLEN], dst_ip[INET6_ADDRSTRLEN];
 	struct ip6_hdr iphdr;
@@ -206,10 +180,22 @@ int main(int argc, char **argv)
   
 
 	// Interface to send packet through.
-	if (argc > 1)
-		strcpy(interface, argv[1]);
-	else
-		strcpy(interface, "enp2s0");
+	if (argc > 1){
+		strcpy(interface, argv[1]); // interface
+		op = atoi(argv[2]); // Oeração
+		strcpy(target, argv[3]); // IPv6 destino
+		portaIni = atoi(argv[4]); // porta Ini
+		portaFim = atoi(argv[5]); // porta Fim
+	}
+	else{
+		printf ("Usage ipvc6_ll interface op destination port port\n");
+		printf ("   op: \n");
+		printf ("   -1 - TCP connect \n");
+		printf ("   -2 - TCP hasl-opening \n");
+		printf ("   -3 - Stealth scan ou TCP FIN \n");
+		printf ("   -4 - SYN/ACK \n");
+		return 0;
+	}
 
 	// Submit request for a socket descriptor to look up interface.
 	if ((sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0) {
@@ -248,7 +234,7 @@ int main(int argc, char **argv)
 	strcpy(src_ip, "2001:1bcd:123:1:20a:f7ff:fe2b:6942");
 
 	// Destination URL or IPv6 address: you need to fill this out
-	strcpy(target, "2001:1bcd:123:1:a61f:72ff:fef5:904a");
+	//strcpy(target, "2001:1bcd:123:1:a61f:72ff:fef5:904a");
 
 	// Fill out hints for getaddrinfo().
 	memset(&hints, 0, sizeof(struct addrinfo));
