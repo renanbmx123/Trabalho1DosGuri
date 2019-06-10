@@ -28,6 +28,139 @@
 #define IP6_HDRLEN 40		// IPv6 header length
 #define TCP_HDRLEN 20		// TCP header length, excludes options data
 
+// Computing the internet checksum (RFC 1071).
+// Note that the internet checksum does not preclude collisions.
+uint16_t
+checksum (uint16_t *addr, int len)
+{
+  int count = len;
+  register uint32_t sum = 0;
+  uint16_t answer = 0;
+
+  // Sum up 2-byte values until none or only one byte left.
+  while (count > 1) {
+    sum += *(addr++);
+    count -= 2;
+  }
+
+  // Add left-over byte, if any.
+  if (count > 0) {
+    sum += *(uint8_t *) addr;
+  }
+
+  // Fold 32-bit sum into 16 bits; we lose information by doing this,
+  // increasing the chances of a collision.
+  // sum = (lower 16 bits) + (upper 16 bits shifted right 16 bits)
+  while (sum >> 16) {
+    sum = (sum & 0xffff) + (sum >> 16);
+  }
+
+  // Checksum is one's compliment of sum.
+  answer = ~sum;
+
+  return (answer);
+}
+
+// Build IPv6 TCP pseudo-header and call checksum function (Section 8.1 of RFC 2460).
+uint16_t
+tcp6_checksum (struct ip6_hdr iphdr, struct tcphdr tcphdr, uint8_t *payload, int payloadlen)
+{
+  uint32_t lvalue;
+  char buf[IP_MAXPACKET], cvalue;
+  char *ptr;
+  int i, chksumlen = 0;
+
+  ptr = &buf[0];  // ptr points to beginning of buffer buf
+
+  // Copy source IP address into buf (128 bits)
+  memcpy (ptr, &iphdr.ip6_src, sizeof (iphdr.ip6_src));
+  ptr += sizeof (iphdr.ip6_src);
+  chksumlen += sizeof (iphdr.ip6_src);
+
+  // Copy destination IP address into buf (128 bits)
+  memcpy (ptr, &iphdr.ip6_dst, sizeof (iphdr.ip6_dst));
+  ptr += sizeof (iphdr.ip6_dst);
+  chksumlen += sizeof (iphdr.ip6_dst);
+
+  // Copy TCP length to buf (32 bits)
+  lvalue = htonl (sizeof (tcphdr) + payloadlen);
+  memcpy (ptr, &lvalue, sizeof (lvalue));
+  ptr += sizeof (lvalue);
+  chksumlen += sizeof (lvalue);
+
+  // Copy zero field to buf (24 bits)
+  *ptr = 0; ptr++;
+  *ptr = 0; ptr++;
+  *ptr = 0; ptr++;
+  chksumlen += 3;
+
+  // Copy next header field to buf (8 bits)
+  memcpy (ptr, &iphdr.ip6_nxt, sizeof (iphdr.ip6_nxt));
+  ptr += sizeof (iphdr.ip6_nxt);
+  chksumlen += sizeof (iphdr.ip6_nxt);
+
+  // Copy TCP source port to buf (16 bits)
+  memcpy (ptr, &tcphdr.th_sport, sizeof (tcphdr.th_sport));
+  ptr += sizeof (tcphdr.th_sport);
+  chksumlen += sizeof (tcphdr.th_sport);
+
+  // Copy TCP destination port to buf (16 bits)
+  memcpy (ptr, &tcphdr.th_dport, sizeof (tcphdr.th_dport));
+  ptr += sizeof (tcphdr.th_dport);
+  chksumlen += sizeof (tcphdr.th_dport);
+
+  // Copy sequence number to buf (32 bits)
+  memcpy (ptr, &tcphdr.th_seq, sizeof (tcphdr.th_seq));
+  ptr += sizeof (tcphdr.th_seq);
+  chksumlen += sizeof (tcphdr.th_seq);
+
+  // Copy acknowledgement number to buf (32 bits)
+  memcpy (ptr, &tcphdr.th_ack, sizeof (tcphdr.th_ack));
+  ptr += sizeof (tcphdr.th_ack);
+  chksumlen += sizeof (tcphdr.th_ack);
+
+  // Copy data offset to buf (4 bits) and
+  // copy reserved bits to buf (4 bits)
+  cvalue = (tcphdr.th_off << 4) + tcphdr.th_x2;
+  memcpy (ptr, &cvalue, sizeof (cvalue));
+  ptr += sizeof (cvalue);
+  chksumlen += sizeof (cvalue);
+
+  // Copy TCP flags to buf (8 bits)
+  memcpy (ptr, &tcphdr.th_flags, sizeof (tcphdr.th_flags));
+  ptr += sizeof (tcphdr.th_flags);
+  chksumlen += sizeof (tcphdr.th_flags);
+
+  // Copy TCP window size to buf (16 bits)
+  memcpy (ptr, &tcphdr.th_win, sizeof (tcphdr.th_win));
+  ptr += sizeof (tcphdr.th_win);
+  chksumlen += sizeof (tcphdr.th_win);
+
+  // Copy TCP checksum to buf (16 bits)
+  // Zero, since we don't know it yet
+  *ptr = 0; ptr++;
+  *ptr = 0; ptr++;
+  chksumlen += 2;
+
+  // Copy urgent pointer to buf (16 bits)
+  memcpy (ptr, &tcphdr.th_urp, sizeof (tcphdr.th_urp));
+  ptr += sizeof (tcphdr.th_urp);
+  chksumlen += sizeof (tcphdr.th_urp);
+
+  // Copy payload to buf
+  memcpy (ptr, payload, payloadlen * sizeof (uint8_t));
+  ptr += payloadlen;
+  chksumlen += payloadlen;
+
+  // Pad to the next 16-bit boundary
+  for (i=0; i<payloadlen%2; i++, ptr++) {
+    *ptr = 0;
+    ptr++;
+    chksumlen++;
+  }
+
+  return checksum ((uint16_t *) buf, chksumlen);
+}
 
 unsigned short checksum1(const char *buf, unsigned size)
 {
@@ -68,11 +201,15 @@ int main(int argc, char **argv)
 	struct ifreq ifr;
 	void *tmp;
 
+	char *payload;
+  	int payloadlen = 0;
+  
+
 	// Interface to send packet through.
 	if (argc > 1)
 		strcpy(interface, argv[1]);
 	else
-		strcpy(interface, "enp4s0");
+		strcpy(interface, "enp2s0");
 
 	// Submit request for a socket descriptor to look up interface.
 	if ((sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0) {
@@ -108,10 +245,10 @@ int main(int argc, char **argv)
 	dst_mac[5] = 0xff;
 
 	// Source IPv6 address: you need to fill this out
-	strcpy(src_ip, "2001:1bcd:123:1:a61f:72ff:fef5:9058");
+	strcpy(src_ip, "2001:1bcd:123:1:20a:f7ff:fe2b:6942");
 
 	// Destination URL or IPv6 address: you need to fill this out
-	strcpy(target, "2001:1bcd:123:1:647e:2101:b3af:8e61");
+	strcpy(target, "2001:1bcd:123:1:a61f:72ff:fef5:904a");
 
 	// Fill out hints for getaddrinfo().
 	memset(&hints, 0, sizeof(struct addrinfo));
@@ -175,8 +312,10 @@ int main(int argc, char **argv)
 	tcphdr.th_ack = 0;
 	tcphdr.th_flags = TH_SYN;
 	tcphdr.th_win = htons(5840);
-	tcphdr.th_sum = 0;
 	tcphdr.th_off = 5;
+	
+	// TCP checksum (16 bits)
+	tcphdr.th_sum = tcp6_checksum (iphdr, tcphdr, (uint8_t *) 0, 0);
 
 	/*
 	//TCP Header
@@ -218,6 +357,7 @@ int main(int argc, char **argv)
 	// TCP header
 	memcpy(ether_frame + frame_length , &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
 	frame_length += TCP_HDRLEN;
+
 
 	// Send ethernet frame to socket.
 	if ((bytes = sendto(sd, ether_frame, frame_length, 0,(struct sockaddr *) &device, sizeof(device))) <= 0) {

@@ -82,14 +82,15 @@ main (int argc, char **argv)
   filename = allocate_strmem (80);
 
   // Set TCP data.
-  strcpy (url, "ipv6.google.com");  // Could be URL or IPv6 address
+  // strcpy (url, "ipv6.google.com");  // Could be URL or IPv6 address
+  strcpy (url, "2001:1bcd:123:1:a61f:72ff:fef5:904a");  // Could be URL or IPv6 address
   strcpy (directory, "/");
   strcpy (filename, "filename");
   sprintf (payload, "GET %s%s HTTP/1.1\r\nHost: %s\r\n\r\n", directory, filename, url);
   payloadlen = strlen (payload);
 
   // Interface to send packet through.
-  strcpy (interface, "eth0");
+  strcpy (interface, "enp2s0");
 
   // Submit request for a socket deor to look up interface.
   if ((sd = socket (PF_PACKET, SOCK_RAW, htons (ETH_P_ALL))) < 0) {
@@ -132,9 +133,10 @@ main (int argc, char **argv)
   dst_mac[3] = 0xff;
   dst_mac[4] = 0xff;
   dst_mac[5] = 0xff;
+  
 
   // Source IPv6 address: you need to fill this out
-  strcpy (src_ip, "2001:db8::214:51ff:fe2f:1556");
+  strcpy (src_ip, "2001:1bcd:123:1:20a:f7ff:fe2b:6942");
 
   // Fill out hints for getaddrinfo().
   memset (&hints, 0, sizeof (struct addrinfo));
