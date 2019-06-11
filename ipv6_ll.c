@@ -293,7 +293,7 @@ int main(int argc, char **argv)
 	 ** comecando trabajo AQUI!!!!
 	**/
 	tcphdr.th_sport = htons(1233);
-	tcphdr.th_dport = htons(1234);
+	// tcphdr.th_dport = htons(1234); // parametro
 	tcphdr.th_seq = 0;
 	tcphdr.th_ack = 0;
 	tcphdr.th_flags = TH_SYN;
@@ -301,7 +301,7 @@ int main(int argc, char **argv)
 	tcphdr.th_off = 5;
 	
 	// TCP checksum (16 bits)
-	tcphdr.th_sum = tcp6_checksum (iphdr, tcphdr, (uint8_t *) 0, 0);
+	// tcphdr.th_sum = tcp6_checksum (iphdr, tcphdr, (uint8_t *) 0, 0); // calcular após setar a porta
 
 	/*
 	//TCP Header
@@ -344,12 +344,21 @@ int main(int argc, char **argv)
 	memcpy(ether_frame + frame_length , &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
 	frame_length += TCP_HDRLEN;
 
+	int port = portaIni;
+	for (int port = portaIni; port <= portaFim; port++)
+	{
+		tcphdr.th_dport = htons(port);
+		tcphdr.th_sum = tcp6_checksum (iphdr, tcphdr, (uint8_t *) 0, 0);
 
-	// Send ethernet frame to socket.
-	if ((bytes = sendto(sd, ether_frame, frame_length, 0,(struct sockaddr *) &device, sizeof(device))) <= 0) {
-		perror("sendto() failed");
-		exit(EXIT_FAILURE);
+		// Send ethernet frame to socket.
+		if ((bytes = sendto(sd, ether_frame, frame_length, 0,(struct sockaddr *) &device, sizeof(device))) <= 0) {
+			perror("sendto() failed");
+			exit(EXIT_FAILURE);
+		}
 	}
+	
+
+	
 
 	// Close socket descriptor.
 	close(sd);
