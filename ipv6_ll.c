@@ -23,10 +23,13 @@
 #include <net/ethernet.h>
 #include <errno.h>		// errno, perror()
 
+
 // Define some constants.
 #define ETH_HDRLEN 14		// Ethernet header length
 #define IP6_HDRLEN 40		// IPv6 header length
 #define TCP_HDRLEN 20		// TCP header length, excludes options data
+#define BUFFSIZE 1518   //
+
 
 // Computing the internet checksum (RFC 1071).
 // Note that the internet checksum does not preclude collisions.
@@ -166,7 +169,7 @@ int main(int argc, char **argv)
 {
 	int i, status, frame_length, sd, bytes, tcp_flags[8], portaIni, portaFim, op;
 	uint8_t src_mac[6], dst_mac[6], ether_frame[1518];
-	char interface[40], target[INET6_ADDRSTRLEN], src_ip[INET6_ADDRSTRLEN], dst_ip[INET6_ADDRSTRLEN];
+	char buff1[BUFFSIZE] ,interface[40], target[INET6_ADDRSTRLEN], src_ip[INET6_ADDRSTRLEN], dst_ip[INET6_ADDRSTRLEN];
 	struct ip6_hdr iphdr;
 	struct tcphdr tcphdr;
 	struct addrinfo hints, *res;
@@ -177,25 +180,25 @@ int main(int argc, char **argv)
 
 	char *payload;
   	int payloadlen = 0;
-  
+
 
 	// Interface to send packet through.
-	if (argc > 1){
-		strcpy(interface, argv[1]); // interface
-		op = atoi(argv[2]); // Oeração
-		strcpy(target, argv[3]); // IPv6 destino
-		portaIni = atoi(argv[4]); // porta Ini
-		portaFim = atoi(argv[5]); // porta Fim
-	}
-	else{
-		printf ("Usage ipvc6_ll interface op destination port port\n");
-		printf ("   op: \n");
-		printf ("   -1 - TCP connect \n");
-		printf ("   -2 - TCP hasl-opening \n");
-		printf ("   -3 - Stealth scan ou TCP FIN \n");
-		printf ("   -4 - SYN/ACK \n");
-		return 0;
-	}
+	 if (argc > 1){
+	 	strcpy(interface, argv[1]); // interface
+	 	op = atoi(argv[2]); // Oeração
+	 	strcpy(target, argv[3]); // IPv6 destino
+	 	portaIni = atoi(argv[4]); // porta Ini
+	 	portaFim = atoi(argv[5]); // porta Fim
+	 }
+	 else{
+	 	printf ("Usage ipvc6_ll interface op destination port port\n");
+	 	printf ("   op: \n");
+	 	printf ("   -1 - TCP connect \n");
+	 	printf ("   -2 - TCP hasl-opening \n");
+	 	printf ("   -3 - Stealth scan ou TCP FIN \n");
+	 	printf ("   -4 - SYN/ACK \n");
+	 	return 0;
+	 }
 
 	// Submit request for a socket descriptor to look up interface.
 	if ((sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0) {
@@ -210,6 +213,12 @@ int main(int argc, char **argv)
 		perror("ioctl() failed to get source MAC address ");
 		return(EXIT_FAILURE);
 	}
+  // O procedimento abaixo eh utilizado para "setar" a interface em modo promiscuo
+	if(ioctl(sd, SIOCGIFINDEX, &ifr) < 0)
+		printf("erro no ioctl!");
+	ioctl(sd, SIOCGIFFLAGS, &ifr);
+	ifr.ifr_flags |= IFF_PROMISC;
+	ioctl(sd, SIOCSIFFLAGS, &ifr);
 
 	// Copy source MAC address.
 	memcpy(src_mac, ifr.ifr_hwaddr.sa_data, 6 * sizeof(uint8_t));
@@ -232,8 +241,6 @@ int main(int argc, char **argv)
 
 	// Source IPv6 address: you need to fill this out
 	strcpy(src_ip, "2001:1bcd:123:1:20a:f7ff:fe2b:6942");
-
-	// Destination URL or IPv6 address: you need to fill this out
 	//strcpy(target, "2001:1bcd:123:1:a61f:72ff:fef5:904a");
 
 	// Fill out hints for getaddrinfo().
@@ -278,6 +285,7 @@ int main(int argc, char **argv)
 
 	// Source IPv6 address (128 bits)
 	if ((status = inet_pton(AF_INET6, src_ip, &(iphdr.ip6_src))) != 1) {
+
 		fprintf(stderr, "inet_pton() failed.\nError message: %s", strerror(status));
 		exit(EXIT_FAILURE);
 	}
@@ -299,28 +307,19 @@ int main(int argc, char **argv)
 	tcphdr.th_flags = TH_SYN;
 	tcphdr.th_win = htons(5840);
 	tcphdr.th_off = 5;
-	
+
 	// TCP checksum (16 bits)
 	tcphdr.th_sum = tcp6_checksum (iphdr, tcphdr, (uint8_t *) 0, 0);
 
-	/*
-	//TCP Header
-	tcph-&gt;source = htons (1234);
-	tcph-&gt;dest = htons (80);
-	tcph-&gt;seq = 0;
-	tcph-&gt;ack_seq = 0;
-	tcph-&gt;doff = 5;
-	tcph-&gt;fin=0;
-	tcph-&gt;syn=1;
-	tcph-&gt;rst=0;
-	tcph-&gt;psh=0;
-	tcph-&gt;ack=0;
-	tcph-&gt;urg=0;
-	tcph-&gt;window = htons (5840);
-	tcph-&gt;check = 0;
-	should fill in the correct checksum during transmission
-	tcph-&gt;urg_ptr = 0;
-	*/
+  // while (1) {
+  //     recvfrom(sd, buffer_u.raw_data, ETH_LEN, 0, NULL, NULL);
+  //     //recv(sd,(char *) &buff1, sizeof(buff1), 0x0);
+  //   // impress�o do conteudo - exemplo Endereco Destino e Endereco Origem
+  //   if (buffer_u.cooked_data.payload.ip.proto == ntohs(ETH_P_IPV6)){
+  //     printf("ipv6\n");
+  //   }
+  //
+  // }
 	// Fill out ethernet frame header.
 
 	// Ethernet frame length = ethernet header (MAC + MAC + ethernet type) + ethernet data (IP header + TCP header)
@@ -350,7 +349,30 @@ int main(int argc, char **argv)
 		perror("sendto() failed");
 		exit(EXIT_FAILURE);
 	}
+  int packet_size = 0;
+  char buff_ipv6[64];
+  // recepcao de pacotes
+  while (1) {
+      //recvfrom(sd, buffer_u.raw_data, ETH_LEN, 0, NULL, NULL);
 
+     packet_size = recv(sd,(char *) &buff1, sizeof(buff1), 0x0);
+     //printf("%d\n", packet_size);
+     struct iphdr *ip_packet = (struct iphdr *)(buff1 +ETH_HDRLEN);
+     struct tcphdr *tcph = (struct tcphdr *)(buff1+ETH_HDRLEN + IP6_HDRLEN);
+
+     inet_ntop(AF_INET6, &(iphdr.ip6_dst), buff_ipv6, sizeof(buff_ipv6));
+     if (!strcmp(target,buff_ipv6)){
+        if(tcph->sh_sport == 	tcphdr.th_sport){
+        printf("Porta origem: %d\n", htons(tcph->th_sport));
+        printf("Porta destino: %d\n", htons(tcph->th_dport));
+        printf("Header: %d\n", tcph->th_off*4);
+        //printf("Payload: %d\n", htons(iph->ip_len)-20-tcph->th_off*4);
+        printf("Flags: ACK %d SYN %d FIN %d\n", tcph->th_flags & 0x10, tcph->th_flags & 0x2, tcph->th_flags & 0x1);
+        printf("Numero sequencia: %u\n", htonl(tcph->th_seq));
+        printf("Numero confirmacao: %u\n", htonl(tcph->th_ack));
+          }
+          }
+  }
 	// Close socket descriptor.
 	close(sd);
 
