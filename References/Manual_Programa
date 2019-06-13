@@ -1,0 +1,39 @@
+Redes de Comunicação II
+TF
+
+Alunos: Bruno Mendes, Eduardo Gindri, Ezequiel Rinco
+
+Uso do programa:
+
+1) De permissão de execução para o arquivo compile.sh 
+	$ sudo chmod a+x compile.sh
+2) Rode o arquivo compile.sh
+	$ ./compile.sh;
+
+3) Execute o programa "attack" com os parâmetros necessários:
+
+	$ sudo ./bin/attack -h 	//para ver a lista de parâmetros//
+	OU
+	$ sudo ./bin/attack -i NUM -f NUM -a NOME -t NUM -s IPv6 -d IPv6 -n NOME 
+		onde: 
+
+		-i NUM		                        Porta inicial
+            	-f NUM		                        Porta final
+            	-a connect | half | stealth | syn_ack   Tipo de ataque
+            	-t NUM		                        Numero de ataques
+  	    	-s IPv6              	                IPv6 de origem no formato xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx
+	    	-d IPv6		                        IPv6 de destino no formato xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx
+	    	-n NOME		 	                Nome da interface de rede (a mesma do IPv6)	
+
+
+	EX: 
+	$ sudo ./bin/attack -i 2400 -f 2403 -a stealth -t 2 -s 2001:1bcd:0123:0001:a4c5:2de3:04ce:e028 -d 2001:1bcd:0123:0001:eced:aa3f:8463:a55d -n enp4s0
+	
+
+4) Execute o programa "sniffer" com os parâmetros necessários:
+
+	$ sudo ./bin/sniffer NOME_INTERFACE IPv6 NUM_TENTATIVAS_PARA_CONSIDERAR_ATAQUE
+	
+	Ex:
+	
+	sudo ./bin/sniffer enp4s0 2001:1bcd:0123:0001:a4c5:2de3:04ce:e028 4

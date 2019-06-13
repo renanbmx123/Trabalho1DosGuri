@@ -264,7 +264,7 @@ int main(int argc, char **argv)
     dst_mac[5] = 0xff;
 
     // Source IPv6 address: you need to fill this out
-    strcpy(src_ip, "2001:1bcd:123:1:a61f:72ff:fef5:9059");
+    strcpy(src_ip, "fe80::a61f:72ff:fef5:9058");
     //strcpy(target, "2001:1bcd:123:1:a61f:72ff:fef5:904a");
 
     // Fill out hints for getaddrinfo().
@@ -327,7 +327,7 @@ int main(int argc, char **argv)
     /**
 	 ** comecando trabajo AQUI!!!!
 	**/
-    tcphdr.th_sport = htons(1233);
+    tcphdr.th_sport = htons(2500);
     // tcphdr.th_dport = htons(1234); // parametro
     tcphdr.th_seq = 0;
     tcphdr.th_ack = 0;
@@ -350,7 +350,7 @@ int main(int argc, char **argv)
     // Fill out ethernet frame header.
 
     // Ethernet frame length = ethernet header (MAC + MAC + ethernet type) + ethernet data (IP header + TCP header)
-    frame_length = ETH_HDRLEN + IP6_HDRLEN; // + TCP_HDRLEN;
+    frame_length = ETH_HDRLEN + IP6_HDRLEN + TCP_HDRLEN;
 
     // Destination and Source MAC addresses
     memcpy(ether_frame, dst_mac, 6 * sizeof(uint8_t));
@@ -366,15 +366,18 @@ int main(int argc, char **argv)
     // IPv6 header
     memcpy(ether_frame + ETH_HDRLEN, &iphdr, IP6_HDRLEN * sizeof(uint8_t)); //12+
 
-    // TCP header
-    memcpy(ether_frame + frame_length, &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
-    frame_length += TCP_HDRLEN;
+    // // TCP header
+    // memcpy(ether_frame + ETH_HDRLEN + IP6_HDRLEN, &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
+
 
     int port = portaIni;
     for (int port = portaIni; port <= portaFim; port++)
     {
         tcphdr.th_dport = htons(port);
         tcphdr.th_sum = tcp6_checksum(iphdr, tcphdr, (uint8_t *)0, 0);
+
+        // TCP header
+        memcpy(ether_frame + ETH_HDRLEN + IP6_HDRLEN, &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
 
         printTCPHeader(&tcphdr);
 
@@ -391,8 +394,6 @@ int main(int argc, char **argv)
     // recepcao de pacotes
     while (1)
     {
-        //recvfrom(sd, buffer_u.raw_data, ETH_LEN, 0, NULL, NULL);
-
         packet_size = recv(sd, (char *)&buffRecv, sizeof(buffRecv), 0x0);
 
         /* Header structures */
@@ -402,17 +403,17 @@ int main(int argc, char **argv)
 
         // Verifica somente meu IP
         inet_ntop(AF_INET6, &(iphRecv->ip6_dst), buff_ipv6, sizeof(buff_ipv6));
-        //if (!strcmp(src_ip, buff_ipv6))
-        if(ethRecv->ether_type == ETHERTYPE_IPV6
-        && ethRecv->ether_dhost == ((struct ether_header *)buffRecv)->ether_shost)
+
+        if( htons(ethRecv->ether_type) == ETHERTYPE_IPV6 
+        && ethRecv->ether_dhost == ((struct ether_header *)buffSend)->ether_shost)
         {
+            printf("*** Catch IP!!!\n");
             printf("IP: %s\n", buff_ipv6);
 
             // Verifica se é para minha porta
-            // if (tcph->th_dport == tcphdr.th_sport)
+             if (tcphRecv->th_dport == tcphdr.th_sport)
             {
-                printf("*** Catch !!!\n");
-
+                printf("*** Catch TCP!!!\n");
                 printTCPHeader(tcphRecv);
             }
         }
