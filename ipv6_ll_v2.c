@@ -181,8 +181,6 @@ void printTCPHeader(struct tcphdr *tcphdr)
     printf("Flags: ACK %d SYN %d FIN %d\n", tcphdr->th_flags & 0x10, tcphdr->th_flags & 0x2, tcphdr->th_flags & 0x1);
     printf("Numero sequencia: %u\n", htonl(tcphdr->th_seq));
     printf("Numero confirmacao: %u\n", htonl(tcphdr->th_ack));
-
-    printf(" *** \n");
 }
 
 int main(int argc, char **argv)
@@ -369,7 +367,6 @@ int main(int argc, char **argv)
     // // TCP header
     // memcpy(ether_frame + ETH_HDRLEN + IP6_HDRLEN, &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
 
-
     int port = portaIni;
     for (int port = portaIni; port <= portaFim; port++)
     {
@@ -380,6 +377,7 @@ int main(int argc, char **argv)
         memcpy(ether_frame + ETH_HDRLEN + IP6_HDRLEN, &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
 
         printTCPHeader(&tcphdr);
+        printf("***\n");
 
         // Send ethernet frame to socket.
         if ((bytes = sendto(sd, ether_frame, frame_length, 0, (struct sockaddr *)&device, sizeof(device))) <= 0)
@@ -404,17 +402,27 @@ int main(int argc, char **argv)
         // Verifica somente meu IP
         inet_ntop(AF_INET6, &(iphRecv->ip6_dst), buff_ipv6, sizeof(buff_ipv6));
 
-        if( htons(ethRecv->ether_type) == ETHERTYPE_IPV6 
-        && ethRecv->ether_dhost == ((struct ether_header *)buffSend)->ether_shost)
+        //printf("IP: %s\n", buff_ipv6);
+
+        char buffRecvIP[INET6_ADDRSTRLEN];
+
+        if (htons(ethRecv->ether_type) == ETHERTYPE_IPV6
+            //&& ethRecv->ether_dhost == ((struct ether_header *)buffSend)->ether_shost)
+            && !strncmp(buff_ipv6, src_ip, INET6_ADDRSTRLEN))
         {
-            printf("*** Catch IP!!!\n");
+            printf("*** Catch IP!!! \t\t");
             printf("IP: %s\n", buff_ipv6);
 
+            // printf("TCP port dest: %d\n", ntohs(tcphRecv->th_dport));
+            // printf("TCP port orig: %d\n", ntohs(tcphdr.th_sport));
+
+
             // Verifica se é para minha porta
-             if (tcphRecv->th_dport == tcphdr.th_sport)
+            if (ntohs(tcphRecv->th_dport) == ntohs(tcphdr.th_sport))
             {
-                printf("*** Catch TCP!!!\n");
+                printf("*** *** Catch TCP!!!\t\t");
                 printTCPHeader(tcphRecv);
+                printf("\n");
             }
         }
     }
