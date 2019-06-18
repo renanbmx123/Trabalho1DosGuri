@@ -169,12 +169,12 @@ uint16_t tcp6_checksum(struct ip6_hdr iphdr, struct tcphdr tcphdr)
 	return checksum((uint16_t *)buf, chksumlen);
 }
 
-void TCP_CONNECT(char *ip_origem, char *ip_destino, char *interface, int porta)
+int runTCP_CONNECT(char *ip_origem, char *ip_destino, char *interface, int porta)
 {
 
     // Variáveis
     int i, status, frame_length, sd, bytes, *tcp_flags;
-    char *src_ip, *dst_ip;
+    char *target, *src_ip, *dst_ip;
     struct ip6_hdr iphdr;
     struct tcphdr tcphdr;
     uint8_t *src_mac, *dst_mac, *ether_frame;
@@ -419,7 +419,7 @@ void TCP_CONNECT(char *ip_origem, char *ip_destino, char *interface, int porta)
         long b = strtol("60", NULL, 10);
 
         // Converte a porta de destino de decimal para long porta definida para envio
-        long d = strtol(porta, NULL, 10);
+        long d = porta;
 
         // Compara se os dados são iguais (ou seja, se o pacote recebido é a resposta do que foi enviado)
         // E se o pacote recebido foi um RST ou RST,ACK
@@ -500,14 +500,14 @@ void TCP_CONNECT(char *ip_origem, char *ip_destino, char *interface, int porta)
     free(dst_ip);
     free(tcp_flags);
 
-    return 0;
+    return (EXIT_SUCCESS);
 }
 
-void TCP_HALF_OPENING (char *ip_origem, char *ip_destino, char *interface, int porta)
+int runTCP_HALF_OPENING (char *ip_origem, char *ip_destino, char *interface, int porta)
 {
     // Variáveis
     int i, status, frame_length, sd, bytes, *tcp_flags;
-    char *src_ip, *dst_ip;
+    char *target, *src_ip, *dst_ip;
     struct ip6_hdr iphdr;
     struct tcphdr tcphdr;
     uint8_t *src_mac, *dst_mac, *ether_frame;
@@ -741,7 +741,7 @@ void TCP_HALF_OPENING (char *ip_origem, char *ip_destino, char *interface, int p
 		long b = strtol("60", NULL, 10);
 
 		// Converte a porta de destino de decimal para long porta definida para envio
-		long d = strtol(porta, NULL, 10);
+		long d = porta;
       
 	  	// Compara se os dados são iguais (ou seja, se o pacote recebido é a resposta do que foi enviado)
 		  // E se o pacote recebido foi um RST ou RST,ACK
@@ -825,11 +825,11 @@ void TCP_HALF_OPENING (char *ip_origem, char *ip_destino, char *interface, int p
 	return (EXIT_SUCCESS);
 }
 
-void STEALTH_SCAN (char *ip_origem, char *ip_destino, char *interface, int porta)
+int runSTEALTH_SCAN (char *ip_origem, char *ip_destino, char *interface, int porta)
 {
     // Variáveis
     int i, status, frame_length, sd, bytes, *tcp_flags;
-    char *src_ip, *dst_ip;
+    char *target, *src_ip, *dst_ip;
     struct ip6_hdr iphdr;
     struct tcphdr tcphdr;
     uint8_t *src_mac, *dst_mac, *ether_frame;
@@ -1065,7 +1065,7 @@ void STEALTH_SCAN (char *ip_origem, char *ip_destino, char *interface, int porta
 		long b = strtol("60", NULL, 10);
 
 		// Converte a porta de destino de decimal para long porta definida para envio
-		long d = strtol(porta, NULL, 10);
+		long d = porta;
       
 	  	// Compara se os dados são iguais (ou seja, se o pacote recebido é a resposta do que foi enviado)
 		  // E se o pacote recebido foi um RST ou RST,ACK
@@ -1099,11 +1099,11 @@ void STEALTH_SCAN (char *ip_origem, char *ip_destino, char *interface, int porta
 	return (EXIT_SUCCESS);
 }
 
-void STEALTH_SCAN (char *ip_origem, char *ip_destino, char *interface, int porta)
+int runSYN_ACK (char *ip_origem, char *ip_destino, char *interface, int porta)
 {
     // Variáveis
     int i, status, frame_length, sd, bytes, *tcp_flags;
-    char *src_ip, *dst_ip;
+    char *target, *src_ip, *dst_ip;
     struct ip6_hdr iphdr;
     struct tcphdr tcphdr;
     uint8_t *src_mac, *dst_mac, *ether_frame;
@@ -1339,7 +1339,7 @@ void STEALTH_SCAN (char *ip_origem, char *ip_destino, char *interface, int porta
 		long b = strtol("60", NULL, 10);
 
 		// Converte a porta de destino de decimal para long porta definida para envio
-		long d = strtol(porta, NULL, 10);
+		long d = porta;
       
 	  	// Compara se os dados são iguais (ou seja, se o pacote recebido é a resposta do que foi enviado)
 		  // E se o pacote recebido foi um RST ou RST,ACK
@@ -1401,106 +1401,33 @@ int main(int argc, char **argv)
         portaFim = atoi(argv[6]);
     }
 
-    for (int i = portaIni; i <= portaFim; i++)
+    int i = 0;
+    for (i = portaIni; i <= portaFim; i++)
     {
         switch (operacao)
         {
             case 0:
                 // SNIFFER()
-                break
+                break;
 
             case 1: // TCP_CONNECT
-                TCP_CONNECT (source, dest, interface, i);
+                runTCP_CONNECT (source, dest, interface, i);
                 break;
 
             case 2: // TCP_HALF_OPENING
-                TCP_HALF_OPENING(source, dest, interface, i);
+                runTCP_HALF_OPENING(source, dest, interface, i);
                 break;
 
             case 3: // STEALTH_SCAN
-                STEALTH_SCAN(source, dest, interface, i);
+                runSTEALTH_SCAN(source, dest, interface, i);
                 break;
 
             case 4: // SYN_ACK
-                SYN_ACK(source, dest, interface, i);
+                runSYN_ACK(source, dest, interface, i);
                 break;
 
             default:
                 break;
-        }
-    }
-
-    for (int i = portaIni; i <= portaFim; i++)
-    {
-        if (strcmp(attack, TCP_CONNECT) == 0)
-        {
-            char *tmp = "./bin/tcp_connect ";
-            char command[SIZE];
-            strcpy(command, tmp);
-            char port[5];
-            sprintf(port, "%d", i);
-
-            strcat(command, port);
-            strcat(command, " ");
-            strcat(command, interface);
-            strcat(command, " ");
-            strcat(command, source);
-            strcat(command, " ");
-            strcat(command, dest);
-            int status = system(command);
-        }
-        else if (strcmp(attack, TCP_HALF_OPENING) == 0)
-        {
-            char *tmp = "./bin/tcp_half_opening ";
-            char command[SIZE];
-            strcpy(command, tmp);
-            char port[5];
-            sprintf(port, "%d", i);
-
-            strcat(command, port);
-            strcat(command, " ");
-            strcat(command, interface);
-            strcat(command, " ");
-            strcat(command, source);
-            strcat(command, " ");
-            strcat(command, dest);
-            int status = system(command);
-        }
-        else if (strcmp(attack, STEALTH_SCAN) == 0)
-        {
-            char *tmp = "./bin/stealth_scan_fin ";
-            char command[SIZE];
-            strcpy(command, tmp);
-            char port[5];
-
-            sprintf(port, "%d", i);
-
-            strcat(command, port);
-            strcat(command, " ");
-            strcat(command, interface);
-            strcat(command, " ");
-            strcat(command, source);
-            strcat(command, " ");
-            strcat(command, dest);
-            int status = system(command);
-        }
-        else
-        {
-            char *tmp = "./bin/syn_ack ";
-            char command[SIZE];
-            strcpy(command, tmp);
-            char port[5];
-
-            sprintf(port, "%d", i);
-
-            strcat(command, port);
-            strcat(command, " ");
-            strcat(command, interface);
-            strcat(command, " ");
-            strcat(command, source);
-            strcat(command, " ");
-            strcat(command, dest);
-            int status = system(command);
         }
     }
 
