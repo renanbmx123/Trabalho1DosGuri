@@ -330,7 +330,7 @@ int runSNIFFER(char *ip_origem, char *ip_destino, char *interface, int porta)
                 count++;
             }
 
-            if (count == strtol(NUM_TENTATIVAS_ATAQUE, NULL, 10))
+            if (count == NUM_TENTATIVAS_ATAQUE)
             {
 
                 if (initial_code == 0x02)
