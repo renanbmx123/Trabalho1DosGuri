@@ -342,7 +342,7 @@ int main(int argc, char **argv)
 			break;
 
 		case 2:
-			printf("\n** Ataque TCP hasf-opening \n\n");
+			printf("\n** Ataque TCP half-opening \n\n");
 			tcphdr.th_flags = TH_SYN;
 			break;
 
@@ -424,13 +424,24 @@ int main(int argc, char **argv)
 			printf("Numero sequencia: %u\n", htonl(tcph->th_seq));
 			printf("Numero confirmacao: %u\n", htonl(tcph->th_ack));
 			
-			if (op == 1) // TCP connect 
+			if (op == 1 || op == 2) // TCP connect || TCP hasf-opening
 			{
 				if (tcph->th_flags == (TH_SYN | TH_ACK))
 				{
 					// *** send ACK as response
 					tcph->th_dport = tcph->th_sport;
-					tcphdr.th_flags = TH_ACK;
+					
+					if (op == 1)
+					{
+						// TCP connect
+						tcphdr.th_flags = TH_ACK;
+					}
+					else 
+					{
+						// TCP hasf-opening
+						tcphdr.th_flags = TH_RST;
+					}
+
 					tcphdr.th_sum = tcp6_checksum(iphdr, tcphdr, (uint8_t *)0, 0);
 					memcpy(ether_frame + ETH_HDRLEN + IP6_HDRLEN, &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
 
@@ -441,6 +452,22 @@ int main(int argc, char **argv)
 						exit(EXIT_FAILURE);
 					}
 
+					printf("Porta %d está aberta !\n", ntohs(tcph->th_sport));
+				}
+			}
+
+			if (op == 3) // Stealth scan [INCOMPLETO]
+			{
+				if (!(tcph->th_flags & TH_RST) == TH_RST)
+				{
+					printf("Porta %d está aberta !\n", ntohs(tcph->th_sport));
+				}
+			}
+
+			if (op == 4) // SYN/ACK
+			{
+				if (tcph->th_flags & TH_RST == TH_RST)
+				{
 					printf("Porta %d está aberta !\n", ntohs(tcph->th_sport));
 				}
 			}
