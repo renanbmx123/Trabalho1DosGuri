@@ -458,6 +458,7 @@ int main(int argc, char **argv)
 
 			if (op == 3) // Stealth scan [INCOMPLETO]
 			{
+				printf("ok");
 				if (!(tcph->th_flags & TH_RST) == TH_RST)
 				{
 					printf("Porta %d está aberta !\n", ntohs(tcph->th_sport));
