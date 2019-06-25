@@ -413,8 +413,7 @@ int main(int argc, char **argv)
 
 		if (buff1[67] == 0x12 && // IPv6
 		!strcmp(dst_ip, buff_ipv6) // IP destino
-		&& tcph->th_sport == tcphdr.th_dport
-		&& tcph->th_dport == tcphdr.th_sport)
+		&& tcph->th_dport == tcphdr.th_sport) // Porta destino recebida = porta origem enviada
 		{
 			printf("Porta origem: %d\n", htons(tcph->th_sport));
 			printf("Porta destino: %d\n", htons(tcph->th_dport));
@@ -456,12 +455,12 @@ int main(int argc, char **argv)
 				}
 			}
 
-			if (op == 3) // Stealth scan [INCOMPLETO]
+			if (op == 3) // Stealth scan
 			{
 				printf("ok");
 				if (!(tcph->th_flags & TH_RST) == TH_RST)
 				{
-					printf("Porta %d está aberta !\n", ntohs(tcph->th_sport));
+					printf("Porta %d está fechada !\n", ntohs(tcph->th_sport));
 				}
 			}
 

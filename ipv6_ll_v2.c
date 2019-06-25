@@ -309,7 +309,6 @@ int main(int argc, char **argv)
     // Source IPv6 address (128 bits)
     if ((status = inet_pton(AF_INET6, src_ip, &(iphdr.ip6_src))) != 1)
     {
-
         fprintf(stderr, "inet_pton() failed.\nError message: %s", strerror(status));
         exit(EXIT_FAILURE);
     }
@@ -325,7 +324,7 @@ int main(int argc, char **argv)
     /**
 	 ** comecando trabajo AQUI!!!!
 	**/
-    tcphdr.th_sport = htons(2500);
+    tcphdr.th_sport = 1234;
     // tcphdr.th_dport = htons(1234); // parametro
     tcphdr.th_seq = 0;
     tcphdr.th_ack = 0;
